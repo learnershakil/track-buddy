@@ -308,3 +308,23 @@ enum ReportType {
   PREDICTION
   VIOLATION_REPORT
 }
+
+// =============================================
+// AUDIT LOG (transaction trail)
+// =============================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  userId      String?  @map("user_id")
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  txId        String?  @map("tx_id")
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@map("audit_logs")
+}
