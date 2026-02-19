@@ -1,0 +1,18 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+
+# Compiled artifacts (keep in git for hackathon)
+# artifacts/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
