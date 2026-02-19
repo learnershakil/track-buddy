@@ -10,11 +10,17 @@
     "lint": "eslint src/ --ext .ts",
     "lint:fix": "eslint src/ --ext .ts --fix"
   },
-  "keywords": ["accountability", "algorand", "web3", "ai"],
+  "keywords": [
+    "accountability",
+    "algorand",
+    "web3",
+    "ai"
+  ],
   "author": "TrackBuddy Team",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/pg": "^8.16.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
@@ -22,8 +28,12 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.4.1",
+    "@prisma/client": "^7.4.1",
     "@types/express": "^4.17.21",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "dotenv": "^16.3.1"
+    "pg": "^8.18.0",
+    "prisma": "^7.4.1"
   }
 }

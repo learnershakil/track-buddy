@@ -1,0 +1,14 @@
+// TrackBuddy — Prisma Schema
+// Core database schema for the accountability system
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Currently Schema models is inside physical notebook
+// I will move it here later
