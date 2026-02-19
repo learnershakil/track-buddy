@@ -5,6 +5,7 @@
  * and contract call helpers for the backend.
  *
  * All on-chain interactions go through this module.
+ * Built for algosdk v3.x API.
  */
 
 import algosdk from 'algosdk';
@@ -73,7 +74,7 @@ export function getAppId(): number {
  * Get the application address (escrow) for payment transactions.
  */
 export function getAppAddress(): string {
-    return algosdk.getApplicationAddress(getAppId());
+    return algosdk.getApplicationAddress(getAppId()).toString();
 }
 
 // ── Contract Call Helpers ──
@@ -90,7 +91,7 @@ export async function buildAppCallTxn(
     const params = await algod.getTransactionParams().do();
 
     return algosdk.makeApplicationNoOpTxnFromObject({
-        from: sender,
+        sender,
         suggestedParams: params,
         appIndex: getAppId(),
         appArgs,
@@ -109,8 +110,8 @@ export async function buildPaymentTxn(
     const params = await algod.getTransactionParams().do();
 
     return algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: sender,
-        to: getAppAddress(),
+        sender,
+        receiver: getAppAddress(),
         amount,
         suggestedParams: params,
     });
@@ -126,7 +127,7 @@ export async function buildOptInTxn(
     const params = await algod.getTransactionParams().do();
 
     return algosdk.makeApplicationOptInTxnFromObject({
-        from: sender,
+        sender,
         suggestedParams: params,
         appIndex: getAppId(),
     });
@@ -148,7 +149,7 @@ export async function signAndSubmitAdmin(
     const result = await algosdk.waitForConfirmation(algod, txid, 4);
     return {
         txId: txid,
-        confirmedRound: Number(result['confirmed-round']),
+        confirmedRound: Number(result.confirmedRound ?? 0),
     };
 }
 
@@ -168,7 +169,7 @@ export async function signAndSubmitGroupAdmin(
     const result = await algosdk.waitForConfirmation(algod, txid, 4);
     return {
         txId: txid,
-        confirmedRound: Number(result['confirmed-round']),
+        confirmedRound: Number(result.confirmedRound ?? 0),
     };
 }
 
@@ -180,15 +181,17 @@ export async function readUserState(userAddress: string): Promise<Record<string,
     const appId = getAppId();
 
     const info = await algod.accountApplicationInformation(userAddress, appId).do();
-    const localState = info['app-local-state']?.['key-value'] || [];
+    const localState = (info as unknown as Record<string, unknown>)['appLocalState'] as Record<string, unknown> | undefined;
+    const keyValues = (localState?.['keyValue'] || []) as Array<Record<string, unknown>>;
 
     const state: Record<string, unknown> = {};
-    for (const item of localState) {
-        const key = Buffer.from(item.key, 'base64').toString();
-        if (item.value.type === 1) {
-            state[key] = Buffer.from(item.value.bytes, 'base64').toString('hex');
+    for (const item of keyValues) {
+        const key = Buffer.from(item.key as string, 'base64').toString();
+        const value = item.value as Record<string, unknown>;
+        if (value.type === 1) {
+            state[key] = Buffer.from(value.bytes as string, 'base64').toString('hex');
         } else {
-            state[key] = item.value.uint;
+            state[key] = value.uint;
         }
     }
     return state;
@@ -202,15 +205,17 @@ export async function readGlobalState(): Promise<Record<string, unknown>> {
     const appId = getAppId();
 
     const info = await algod.getApplicationByID(appId).do();
-    const globalState = info['params']['global-state'] || [];
+    const params = (info as unknown as Record<string, unknown>)['params'] as Record<string, unknown>;
+    const globalState = (params?.['globalState'] || []) as Array<Record<string, unknown>>;
 
     const state: Record<string, unknown> = {};
     for (const item of globalState) {
-        const key = Buffer.from(item.key, 'base64').toString();
-        if (item.value.type === 1) {
-            state[key] = Buffer.from(item.value.bytes, 'base64').toString('hex');
+        const key = Buffer.from(item.key as string, 'base64').toString();
+        const value = item.value as Record<string, unknown>;
+        if (value.type === 1) {
+            state[key] = Buffer.from(value.bytes as string, 'base64').toString('hex');
         } else {
-            state[key] = item.value.uint;
+            state[key] = value.uint;
         }
     }
     return state;
