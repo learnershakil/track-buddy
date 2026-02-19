@@ -199,11 +199,83 @@ handle_noop:
 // =============================================
 // METHOD: createCommitment
 // Args: [0]="createCommitment", [1]=commitment_hash
-// Requires: payment txn in group for stake
-// Implemented fully in Commit 8
+// Requires: atomic group with payment txn for stake
+// User stakes ALGO into contract escrow
 // =============================================
 method_create_commitment:
-  // Placeholder — full implementation in Commit 8
+  // --- Validate: must have 2 app args ---
+  // arg[0] = "createCommitment", arg[1] = commitment_hash
+  txn NumAppArgs
+  int 2
+  >=
+  assert
+
+  // --- Validate: user must NOT have active commitment ---
+  // commitment_status must be 0 (none) or 2 (completed) or 3 (failed)
+  txn Sender
+  byte "commitment_status"
+  app_local_get
+  int 1  // 1 = active
+  !=
+  assert
+
+  // --- Validate: atomic group of exactly 2 txns ---
+  // txn[0] = payment (stake), txn[1] = this app call
+  global GroupSize
+  int 2
+  ==
+  assert
+
+  // --- Validate: first txn in group is a Payment ---
+  gtxn 0 TypeEnum
+  int pay
+  ==
+  assert
+
+  // --- Validate: payment receiver is this app address ---
+  gtxn 0 Receiver
+  global CurrentApplicationAddress
+  ==
+  assert
+
+  // --- Validate: payment amount > 0 (minimum stake) ---
+  gtxn 0 Amount
+  int 0
+  >
+  assert
+
+  // --- Validate: payment sender is the caller ---
+  gtxn 0 Sender
+  txn Sender
+  ==
+  assert
+
+  // --- Store stake amount in local state ---
+  txn Sender
+  byte "stake_amount"
+  gtxn 0 Amount
+  app_local_put
+
+  // --- Store commitment hash in local state ---
+  txn Sender
+  byte "commitment_hash"
+  txna ApplicationArgs 1
+  app_local_put
+
+  // --- Set commitment status to active (1) ---
+  txn Sender
+  byte "commitment_status"
+  int 1
+  app_local_put
+
+  // --- Increment global commitments counter ---
+  byte "total_commitments"
+  byte "total_commitments"
+  app_global_get
+  int 1
+  +
+  app_global_put
+
   int 1
   return
 
