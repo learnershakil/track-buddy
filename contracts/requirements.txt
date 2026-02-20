@@ -1,0 +1,5 @@
+py-algorand-sdk==2.6.1
+algokit-utils==2.3.0
+python-dotenv==1.0.1
+pytest==7.4.4
+setuptools

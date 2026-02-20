@@ -1,0 +1,330 @@
+// =============================================
+// TrackBuddy — Prisma Schema
+// Core database schema for the accountability system
+// =============================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================
+// USERS
+// =============================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  phone     String?
+  walletAddress String? @unique @map("wallet_address")
+  
+  // Discipline mode
+  mode      UserMode @default(NORMAL)
+  
+  // Accountability partner
+  partnerId String?  @map("partner_id")
+  partner   User?    @relation("AccountabilityPartner", fields: [partnerId], references: [id])
+  partnerOf User[]   @relation("AccountabilityPartner")
+
+  // Goals
+  dailyFocusHours  Float  @default(8) @map("daily_focus_hours")
+  sleepTarget      Float  @default(7) @map("sleep_target")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  commitments      Commitment[]
+  sessionLogs      SessionLog[]
+  disciplineScores DisciplineScore[]
+  bridgeTransactions BridgeTransaction[]
+  violations       Violation[]
+
+  @@map("users")
+}
+
+enum UserMode {
+  NORMAL
+  HARDCORE
+}
+
+// =============================================
+// COMMITMENTS (on-chain stake system)
+// =============================================
+
+model Commitment {
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  user        User             @relation(fields: [userId], references: [id])
+
+  // What the user committed to
+  title       String
+  description String?
+  category    CommitmentCategory
+  duration    Int              // duration in minutes
+  
+  // Stake
+  stakeAmount Float            @map("stake_amount")  // in ALGO
+  
+  // On-chain reference
+  onChainTxId String?          @map("on_chain_tx_id")
+  appId       Int?             @map("app_id")
+  
+  // Status
+  status      CommitmentStatus @default(ACTIVE)
+  
+  // Outcome
+  rewardAmount  Float?         @map("reward_amount")
+  penaltyAmount Float?         @map("penalty_amount")
+  
+  startTime   DateTime         @map("start_time")
+  endTime     DateTime?        @map("end_time")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  sessionLogs SessionLog[]
+  violations  Violation[]
+
+  @@map("commitments")
+}
+
+enum CommitmentCategory {
+  CODING
+  STUDY
+  GYM
+  SLEEP
+  GENERAL
+}
+
+enum CommitmentStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// =============================================
+// SESSION LOGS (focus tracking)
+// =============================================
+
+model SessionLog {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id])
+  commitmentId  String?   @map("commitment_id")
+  commitment    Commitment? @relation(fields: [commitmentId], references: [id])
+  
+  // Session data
+  sessionType   SessionType
+  startTime     DateTime  @map("start_time")
+  endTime       DateTime? @map("end_time")
+  
+  // Tracking metrics
+  focusMinutes      Int   @default(0) @map("focus_minutes")
+  distractionMinutes Int  @default(0) @map("distraction_minutes")
+  idleMinutes       Int   @default(0) @map("idle_minutes")
+  
+  // Source data
+  source        SessionSource @default(MANUAL)
+  
+  // AI verification
+  isVerified    Boolean   @default(false) @map("is_verified")
+  aiScore       Float?    @map("ai_score")  // 0-100
+  
+  // Activity summary hash (for on-chain storage)
+  activityHash  String?   @map("activity_hash")
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("session_logs")
+}
+
+enum SessionType {
+  FOCUS
+  BREAK
+  DEEP_WORK
+  EXERCISE
+}
+
+enum SessionSource {
+  MANUAL
+  CHROME_EXTENSION
+  VSCODE_PLUGIN
+  MOBILE_APP
+  DESKTOP_APP
+}
+
+// =============================================
+// DISCIPLINE SCORES (daily on-chain record)
+// =============================================
+
+model DisciplineScore {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id])
+  
+  date        DateTime @db.Date
+  
+  // Scores (0-100)
+  overallScore    Float  @map("overall_score")
+  focusScore      Float  @map("focus_score")
+  consistencyScore Float @map("consistency_score")
+  
+  // Streak
+  currentStreak   Int    @default(0) @map("current_streak")
+  longestStreak   Int    @default(0) @map("longest_streak")
+  
+  // On-chain reference
+  onChainTxId     String? @map("on_chain_tx_id")
+  scoreHash       String? @map("score_hash")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, date])
+  @@map("discipline_scores")
+}
+
+// =============================================
+// VIOLATIONS
+// =============================================
+
+model Violation {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id])
+  commitmentId  String?   @map("commitment_id")
+  commitment    Commitment? @relation(fields: [commitmentId], references: [id])
+  
+  type          ViolationType
+  description   String?
+  
+  // Penalty
+  penaltyApplied  Boolean @default(false) @map("penalty_applied")
+  penaltyAmount   Float?  @map("penalty_amount")
+  
+  // AI call triggered?
+  callTriggered   Boolean @default(false) @map("call_triggered")
+  callSid         String? @map("call_sid")  // Twilio call SID
+  
+  // On-chain
+  onChainTxId     String? @map("on_chain_tx_id")
+  
+  occurredAt      DateTime @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("violations")
+}
+
+enum ViolationType {
+  DISTRACTION
+  MISSED_SESSION
+  INACTIVITY
+  GOAL_FAILURE
+}
+
+// =============================================
+// BRIDGE TRANSACTIONS (Crypto → UPI)
+// =============================================
+
+model BridgeTransaction {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Crypto side
+  algoAmount    Float  @map("algo_amount")
+  algoTxId      String? @map("algo_tx_id")
+  
+  // Conversion
+  exchangeRate  Float  @map("exchange_rate")  // ALGO/INR at time of tx
+  inrAmount     Float  @map("inr_amount")
+  
+  // UPI side
+  upiId         String? @map("upi_id")
+  upiReference  String? @map("upi_reference")
+  
+  // Status
+  status        BridgeStatus @default(PENDING)
+  
+  // On-chain bridge intent
+  onChainIntentTxId   String? @map("on_chain_intent_tx_id")
+  onChainSettleTxId   String? @map("on_chain_settle_tx_id")
+  
+  // Provider
+  payoutProvider      String? @map("payout_provider")
+  payoutReference     String? @map("payout_reference")
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  settledAt     DateTime? @map("settled_at")
+
+  @@map("bridge_transactions")
+}
+
+enum BridgeStatus {
+  PENDING
+  CRYPTO_CONFIRMED
+  CONVERTING
+  PAYOUT_INITIATED
+  SETTLED
+  FAILED
+}
+
+// =============================================
+// AI REPORTS
+// =============================================
+
+model AiReport {
+  id          String     @id @default(uuid())
+  userId      String     @map("user_id")
+  
+  type        ReportType
+  date        DateTime   @db.Date
+  
+  // Report content
+  summary     String
+  insights    String?    // JSON string of insights
+  predictions String?    // JSON string of predictions
+  rawResponse String?    @map("raw_response")
+  
+  // Scores from AI
+  productivityScore Float? @map("productivity_score")
+  burnoutRisk       Float? @map("burnout_risk")
+  
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@map("ai_reports")
+}
+
+enum ReportType {
+  DAILY_ANALYSIS
+  WEEKLY_SUMMARY
+  PREDICTION
+  VIOLATION_REPORT
+}
+
+// =============================================
+// AUDIT LOG (transaction trail)
+// =============================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  userId      String?  @map("user_id")
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  txId        String?  @map("tx_id")
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@map("audit_logs")
+}

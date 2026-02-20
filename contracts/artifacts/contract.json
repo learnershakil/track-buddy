@@ -1,0 +1,113 @@
+{
+  "name": "TrackBuddyDiscipline",
+  "description": "AI Accountability System -- Discipline enforcement on Algorand",
+  "version": "1.0.0",
+  "teal_version": 8,
+  "state_schema": {
+    "global": {
+      "num_uints": 3,
+      "num_byte_slices": 1,
+      "keys": {
+        "admin": {
+          "type": "bytes",
+          "descr": "Backend admin address"
+        },
+        "total_commitments": {
+          "type": "uint64",
+          "descr": "Commitment counter"
+        },
+        "total_penalties": {
+          "type": "uint64",
+          "descr": "Penalty counter"
+        },
+        "total_bridge_intents": {
+          "type": "uint64",
+          "descr": "Bridge intent counter"
+        }
+      }
+    },
+    "local": {
+      "num_uints": 4,
+      "num_byte_slices": 1,
+      "keys": {
+        "stake_amount": {
+          "type": "uint64",
+          "descr": "Staked microAlgos"
+        },
+        "commitment_status": {
+          "type": "uint64",
+          "descr": "0=none, 1=active, 2=completed, 3=failed"
+        },
+        "violations": {
+          "type": "uint64",
+          "descr": "Violation counter"
+        },
+        "discipline_score": {
+          "type": "uint64",
+          "descr": "Score 0-100"
+        },
+        "commitment_hash": {
+          "type": "bytes",
+          "descr": "SHA256 of commitment metadata"
+        }
+      }
+    }
+  },
+  "methods": {
+    "createCommitment": {
+      "args": [
+        "commitment_hash (bytes)",
+        "duration (uint64)"
+      ],
+      "returns": "void",
+      "descr": "User stakes ALGO and registers a commitment",
+      "requires_payment": true,
+      "admin_only": false
+    },
+    "verifySession": {
+      "args": [
+        "account (address)",
+        "success (uint64)"
+      ],
+      "returns": "void",
+      "descr": "Backend verifies session and releases/locks stake",
+      "admin_only": true
+    },
+    "applyPenalty": {
+      "args": [
+        "account (address)"
+      ],
+      "returns": "void",
+      "descr": "Backend applies penalty on detected violation",
+      "admin_only": true
+    },
+    "logDiscipline": {
+      "args": [
+        "account (address)",
+        "score (uint64)"
+      ],
+      "returns": "void",
+      "descr": "Backend logs daily discipline score on-chain",
+      "admin_only": true
+    },
+    "bridgeIntent": {
+      "args": [
+        "upi_hash (bytes)",
+        "amount (uint64)"
+      ],
+      "returns": "void",
+      "descr": "User initiates crypto-to-UPI bridge payment",
+      "requires_payment": true,
+      "admin_only": false
+    },
+    "settleBridge": {
+      "args": [
+        "account (address)",
+        "ref_hash (bytes)"
+      ],
+      "returns": "void",
+      "descr": "Backend confirms bridge payout completion on-chain",
+      "admin_only": true
+    }
+  }
+}
