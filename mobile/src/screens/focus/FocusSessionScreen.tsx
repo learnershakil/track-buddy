@@ -11,6 +11,7 @@ import { ProgressRing } from "@/components/ui/ProgressRing";
 import { useSessionStore } from "@/store/session.store";
 import { useBackHandler } from "@/hooks/useBackHandler";
 import { COLORS } from "@/constants/theme";
+import { useLogSession } from "@/hooks/api";
 
 type Route = RouteProp<FocusStackParamList, "FocusSession">;
 
@@ -18,6 +19,8 @@ export function FocusSessionScreen() {
   const route      = useRoute<Route>();
   const navigation = useNavigation();
   const { duration, taskId } = route.params;
+
+  const { mutate: logSession } = useLogSession();
 
   const totalSeconds = duration * 60;
   const { status, elapsedSeconds, startSession, endSession, tickSecond } = useSessionStore();
@@ -33,6 +36,14 @@ export function FocusSessionScreen() {
   const mins      = Math.floor(remaining / 60);
   const secs      = remaining % 60;
 
+    const handleSessionComplete = (commitmentId: string, focusMin: number, distractMin: number) => {
+    logSession({
+      commitmentId,
+      focusMinutes:       focusMin,
+      distractionMinutes: distractMin,
+    });
+  };
+
   useEffect(() => {
     startSession({ id: taskId, title: "Focus Session", duration, category: "coding", createdAt: new Date().toISOString() });
     setHasStarted(true);
@@ -43,6 +54,7 @@ export function FocusSessionScreen() {
   useEffect(() => {
     if (remaining === 0 && intervalRef.current) {
       clearInterval(intervalRef.current);
+      handleSessionComplete(taskId, Math.floor(elapsedSeconds / 60), 0);
       endSession();
     }
   }, [remaining]);

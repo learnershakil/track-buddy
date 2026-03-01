@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import { View, Text, ScrollView, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -11,9 +11,14 @@ import { ProgressRing } from "@/components/ui/ProgressRing";
 import { LineChart } from "@/components/ui/LineChart";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Divider } from "@/components/ui/Divider";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useDisciplineStore } from "@/store/discipline.store";
 import { useVoice } from "@/hooks/useVoice";
 import { COLORS } from "@/constants/theme";
+
+import { useAIAnalysis } from "@/hooks/api";
+import { useAuthStore }  from "@/store/auth.store";
+
 
 
 import { useDistractionStore } from "@/store/distraction.store";
@@ -129,114 +134,48 @@ function CategoryBreakdown() {
 
 
 export function AIReportScreen() {
-  const { weeklyLogs } = useDisciplineStore();
-  const { speak, stop } = useVoice();
-  const [speaking, setSpeaking] = useState(false);
+  const { user }    = useAuthStore();
+  const { mutate: analyze, data: report, isPending, isError } = useAIAnalysis();
 
-  const weekScores = weeklyLogs.map((l) => l.score);
+  // Trigger once on mount
+  useEffect(() => {
+    if (user?.id) analyze({ userId: user.id });
+  }, [user?.id]);
 
-  const handleVoiceReport = () => {
-    if (speaking) { stop(); setSpeaking(false); return; }
-    setSpeaking(true);
-    speak(AI_VERDICT.message, 0.9, 1.05);
-    setTimeout(() => setSpeaking(false), 8000);
-  };
+  if (isPending) return <LoadingSpinner label="GPT-4 analyzing..." />;
 
+  // Use report.grade, report.overallScore, report.summary,
+  // report.strengths, report.weaknesses, report.recommendations
   return (
     <SafeAreaWrapper>
-      <Header title="AI Report" showBack />
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-5 gap-4 pb-8">
+      <Card elevated className="items-center py-8">
+        <ProgressRing progress={report?.overallScore ?? 0} size={130} ... />
+        <Text className="text-white text-xl font-bold mt-4">
+          Grade: {report?.grade ?? "—"}
+        </Text>
+      </Card>
 
-          {/* Score hero */}
-          <Card elevated className="items-center py-8">
-            <ProgressRing
-              progress={AI_VERDICT.score}
-              size={130}
-              strokeWidth={10}
-              color={COLORS.accent}
-              label={`${AI_VERDICT.score}`}
-            />
-            <Text className="text-white text-xl font-bold mt-4">Discipline Score</Text>
-            <Badge label={AI_VERDICT.label} variant="accent" />
-          </Card>
+      <Card elevated className="border-l-4 border-l-accent">
+        <Text className="text-white text-sm leading-6 italic">
+          "{report?.summary}"
+        </Text>
+      </Card>
 
-          {/* Planned vs Actual */}
-          <Card elevated>
-            <SectionHeader title="Planned vs Actual" />
-            <View className="gap-3">
-              {[
-                { label: "Planned Work", hours: AI_VERDICT.plannedHours, color: COLORS.primary, max: 10 },
-                { label: "Actual Work", hours: AI_VERDICT.actualHours, color: COLORS.success, max: 10 },
-                { label: "Distraction", hours: AI_VERDICT.distractionH, color: COLORS.danger, max: 10 },
-              ].map((item) => (
-                <View key={item.label}>
-                  <View className="flex-row justify-between mb-1.5">
-                    <Text className="text-muted text-sm">{item.label}</Text>
-                    <Text className="text-white text-sm font-bold">{item.hours}h</Text>
-                  </View>
-                  <ProgressBar value={item.hours} max={item.max} color={item.color} />
-                </View>
-              ))}
-            </View>
-          </Card>
-          <FocusDistractionBar />
-          <CategoryBreakdown />
+      {/* Strengths */}
+      <Card elevated>
+        <SectionHeader title="Strengths" />
+        {report?.strengths.map((s, i) => (
+          <Text key={i} className="text-success text-sm">✓ {s}</Text>
+        ))}
+      </Card>
 
-          {/* Weekly trend */}
-          <Card elevated>
-            <SectionHeader title="Weekly Trend" subtitle="Discipline score — last 7 days" />
-            <LineChart data={weekScores} width={CHART_WIDTH} height={90} color={COLORS.primary} />
-          </Card>
-
-          {/* AI Feedback */}
-          <Card elevated className="border-l-4 border-l-accent">
-            <View className="flex-row items-center gap-2 mb-3">
-              <Ionicons name="sparkles" size={16} color={COLORS.accent} />
-              <Text className="text-accent text-sm font-bold uppercase tracking-wider">AI Verdict</Text>
-            </View>
-            <Text className="text-white text-sm leading-6 italic">"{AI_VERDICT.message}"</Text>
-          </Card>
-
-          {/* Insights */}
-          <Card elevated>
-            <SectionHeader title="Behavior Insights" />
-            <View className="gap-3">
-              {AI_VERDICT.insights.map((item, i) => (
-                <View key={i} className="flex-row items-center gap-3">
-                  <View className="w-8 h-8 rounded-lg items-center justify-center" style={{ backgroundColor: `${item.color}20` }}>
-                    <Ionicons name={item.icon as any} size={16} color={item.color} />
-                  </View>
-                  <Text className="text-white text-sm flex-1">{item.text}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-
-          {/* Improvements */}
-          <Card elevated>
-            <SectionHeader title="AI Recommendations" />
-            <View className="gap-2.5">
-              {AI_VERDICT.improvements.map((tip, i) => (
-                <View key={i} className="flex-row items-start gap-3">
-                  <View className="w-5 h-5 rounded-full bg-primary items-center justify-center mt-0.5">
-                    <Text className="text-white text-xs font-bold">{i + 1}</Text>
-                  </View>
-                  <Text className="text-white text-sm flex-1 leading-5">{tip}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-
-          {/* Voice report */}
-          <Button
-            label={speaking ? "⏹ Stop Report" : "🎙 Hear AI Report (Voice)"}
-            onPress={handleVoiceReport}
-            variant={speaking ? "danger" : "outline"}
-            fullWidth size="lg"
-          />
-        </View>
-      </ScrollView>
+      {/* Recommendations */}
+      <Card elevated>
+        <SectionHeader title="Recommendations" />
+        {report?.recommendations.map((r, i) => (
+          <Text key={i} className="text-white text-sm">{i + 1}. {r}</Text>
+        ))}
+      </Card>
     </SafeAreaWrapper>
   );
 }

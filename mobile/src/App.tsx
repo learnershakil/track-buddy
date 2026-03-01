@@ -10,6 +10,7 @@ import { RootNavigator } from "@/navigation/RootNavigator";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { WalletProvider } from "@/providers/WalletProvider";
 import { SocketProvider } from "@/providers/SocketProvider";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 export default function App() {
   return (
@@ -18,10 +19,12 @@ export default function App() {
         <ThemeProvider>
           <WalletProvider>
             <SocketProvider>
+              <QueryProvider>
               <NavigationContainer>
                 <StatusBar style="light" backgroundColor="#0A0A0F" />
                 <RootNavigator />
               </NavigationContainer>
+              </QueryProvider>
             </SocketProvider>
           </WalletProvider>
         </ThemeProvider>

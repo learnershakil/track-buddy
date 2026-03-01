@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,8 @@ import { useSessionStore } from "@/store/session.store";
 import { useWalletStore } from "@/store/wallet.store";
 import { COLORS } from "@/constants/theme";
 import { ROUTES } from "@/constants/routes";
+import { useAISummary } from "@/hooks/api";
+import { useCommitments } from "@/hooks/api";
 
 const QUICK_ACTIONS = [
   { label: "Start Focus", icon: "play-circle" as const, color: COLORS.primary, route: ROUTES.FOCUS_HOME },
@@ -28,9 +30,20 @@ export function DashboardScreen() {
   const { todayScore, streak } = useDisciplineStore();
   const { activeTask } = useSessionStore();
   const { balance, stakedAmount } = useWalletStore();
+  const { data: summary, isLoading: aiLoading } = useAISummary();
+  const { data: commitments } = useCommitments();
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  useEffect(() => {
+    if (summary) {
+      useDisciplineStore.getState().hydrate(user!.id);
+    }
+  }, [summary]);
+  
+  const score  = summary?.todayScore   ?? 0;
+  //const streak = /* from commitments violation count */ 0;
 
   return (
     <SafeAreaWrapper>

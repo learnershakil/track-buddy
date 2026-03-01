@@ -1,37 +1,53 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { User } from "@/types/user.types";
-import { MOCK_USER } from "@/constants/mock";
+import { usersService, BackendUser } from "@/services/api";
 
 interface AuthState {
-  user:                   User | null;
-  isAuthenticated:        boolean;
-  hasCompletedOnboarding: boolean;
-  token:                  string | null;
+  user:          BackendUser | null;
+  isLoading:     boolean;
+  isOnboarded:   boolean;
 
-  setUser:                (user: User, token: string) => void;
-  setOnboardingComplete:  () => void;
-  logout:                 () => void;
+  login:         (email: string, name: string, phone?: string) => Promise<void>;
+  updateUser:    (payload: Partial<BackendUser>) => Promise<void>;
+  setWallet:     (address: string) => Promise<void>;
+  logout:        () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
-      // ── Mock: skip auth in dev, start fresh in prod ──────────────────────
-      user:                   __DEV__ ? MOCK_USER        : null,
-      isAuthenticated:        __DEV__ ? true             : false,
-      hasCompletedOnboarding: __DEV__ ? true             : false,
-      token:                  __DEV__ ? "mock_dev_token" : null,
+    (set, get) => ({
+      user:        null,
+      isLoading:   false,
+      isOnboarded: false,
 
-      setUser: (user, token) =>
-        set({ user, token, isAuthenticated: true }),
+      login: async (email, name, phone) => {
+        set({ isLoading: true });
+        try {
+          const user = await usersService.create({ email, name, phone });
+          set({ user, isLoading: false, isOnboarded: true });
+        } catch (err: any) {
+          // If user already exists, fetch by email (extend backend if needed)
+          set({ isLoading: false });
+          throw err;
+        }
+      },
 
-      setOnboardingComplete: () =>
-        set({ hasCompletedOnboarding: true }),
+      updateUser: async (payload) => {
+        const { user } = get();
+        if (!user) return;
+        const updated = await usersService.update(user.id, payload);
+        set({ user: updated });
+      },
 
-      logout: () =>
-        set({ user: null, token: null, isAuthenticated: false, hasCompletedOnboarding: false }),
+      setWallet: async (address) => {
+        const { user } = get();
+        if (!user) return;
+        const updated = await usersService.update(user.id, { walletAddress: address });
+        set({ user: updated });
+      },
+
+      logout: () => set({ user: null, isOnboarded: false }),
     }),
     {
       name:    "auth-store",

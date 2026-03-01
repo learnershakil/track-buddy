@@ -8,31 +8,35 @@ import { Card }            from "@/components/ui/Card";
 import { Button }          from "@/components/ui/Button";
 import { useWalletStore }  from "@/store/wallet.store";
 import { COLORS }          from "@/constants/theme";
+import { useAlgoPrice, useBridgePayout } from "@/hooks/api";
 
 export function CryptoUPIScreen() {
   const { balance, addTransaction } = useWalletStore();
   const [amount, setAmount] = useState("");
   const [upiId, setUpiId]   = useState("");
   const [paid, setPaid]     = useState(false);
+  const { data: priceData } = useAlgoPrice();
+  const { mutate: payout, isPending, isSuccess } = useBridgePayout();
 
-  const handlePay = () => {
-    if (!amount || !upiId) return;
-    addTransaction({ type: "payment", amount: Number(amount), note: `UPI → ${upiId}` });
-    setPaid(true);
+   const handlePay = () => {
+    payout({
+      bridgeId:   `bridge_${Date.now()}`,
+      algoAmount: Number(amount),
+      userUpiId:  upiId,
+    });
   };
 
   if (paid) {
     return (
       <SafeAreaWrapper>
-        <View className="flex-1 items-center justify-center px-6">
-          <View className="w-20 h-20 rounded-full bg-success/20 items-center justify-center mb-6">
-            <Ionicons name="checkmark-circle" size={44} color={COLORS.success} />
-          </View>
-          <Text className="text-white text-2xl font-bold">Payment Sent</Text>
-          <Text className="text-muted text-sm mt-2 text-center">
-            Paid ₹{amount} via UPI to {upiId}
-          </Text>
-        </View>
+        <Card elevated>
+      <View className="flex-row items-center justify-between">
+        <Text className="text-muted text-sm">Live ALGO/INR Rate</Text>
+        <Text className="text-white text-sm font-bold">
+          ₹{priceData?.algo_inr?.toFixed(2) ?? "—"}
+        </Text>
+      </View>
+    </Card>
       </SafeAreaWrapper>
     );
   }

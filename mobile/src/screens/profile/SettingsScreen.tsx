@@ -4,12 +4,14 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { SafeAreaWrapper } from "@/components/layout/SafeAreaWrapper";
-import { Header }          from "@/components/layout/Header";
-import { Card }            from "@/components/ui/Card";
-import { Divider }         from "@/components/ui/Divider";
-import { useAuthStore }    from "@/store/auth.store";
-import { useAppStore }     from "@/store/app.store";
-import { COLORS }          from "@/constants/theme";
+import { Header } from "@/components/layout/Header";
+import { Card } from "@/components/ui/Card";
+import { Divider } from "@/components/ui/Divider";
+import { useAuthStore } from "@/store/auth.store";
+import { useAppStore } from "@/store/app.store";
+import { COLORS } from "@/constants/theme";
+import { useBackendHealth } from "@/hooks/api/useHealth";
+import { Badge } from "@/components/ui/Badge";
 
 function SettingsRow({
   icon, label, value, onPress, danger = false, rightEl,
@@ -35,10 +37,11 @@ function SettingsRow({
 }
 
 export function SettingsScreen() {
-  const navigation       = useNavigation();
+  const navigation = useNavigation();
   const { user, logout } = useAuthStore();
   const { mode, setMode } = useAppStore();
   const isHardcore = mode === "hardcore";
+  const { data: health, isError } = useBackendHealth();
 
   return (
     <SafeAreaWrapper>
@@ -49,11 +52,22 @@ export function SettingsScreen() {
           {/* Account */}
           <Card elevated>
             <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3 px-1">Account</Text>
-            <SettingsRow icon="person-outline"    label="Name"   value={user?.name} />
+            <SettingsRow icon="person-outline" label="Name" value={user?.name} />
             <Divider className="my-0" />
-            <SettingsRow icon="mail-outline"      label="Email"  value={user?.email} />
+            <SettingsRow icon="mail-outline" label="Email" value={user?.email} />
             <Divider className="my-0" />
-            <SettingsRow icon="wallet-outline"    label="Wallet" value={user?.walletAddress ?? "Not connected"} />
+            <SettingsRow icon="wallet-outline" label="Wallet" value={user?.walletAddress ?? "Not connected"} />
+            <Divider className="my-0" />
+            <SettingsRow
+              icon="server-outline"
+              label="Backend Status"
+              rightEl={
+                <Badge
+                  label={isError ? "Offline" : health?.status === "ok" ? "Online" : "Degraded"}
+                  variant={isError ? "danger" : "success"}
+                />
+              }
+            />
           </Card>
 
           {/* Mode */}
@@ -80,9 +94,9 @@ export function SettingsScreen() {
           <Card elevated>
             <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3 px-1">Notifications</Text>
             {[
-              { icon: "notifications-outline", label: "Focus reminders"     },
-              { icon: "call-outline",          label: "AI accountability calls" },
-              { icon: "warning-outline",       label: "Deadman mode alerts" },
+              { icon: "notifications-outline", label: "Focus reminders" },
+              { icon: "call-outline", label: "AI accountability calls" },
+              { icon: "warning-outline", label: "Deadman mode alerts" },
             ].map((n, i, arr) => (
               <React.Fragment key={n.label}>
                 <SettingsRow
@@ -97,19 +111,19 @@ export function SettingsScreen() {
           {/* Integrations */}
           <Card elevated>
             <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3 px-1">Integrations</Text>
-            <SettingsRow icon="globe-outline"       label="Chrome Extension"  onPress={() => {}} />
+            <SettingsRow icon="globe-outline" label="Chrome Extension" onPress={() => { }} />
             <Divider className="my-0" />
-            <SettingsRow icon="code-slash-outline"  label="VSCode Plugin"     onPress={() => {}} />
+            <SettingsRow icon="code-slash-outline" label="VSCode Plugin" onPress={() => { }} />
             <Divider className="my-0" />
-            <SettingsRow icon="desktop-outline"     label="Desktop Agent"     onPress={() => {}} />
+            <SettingsRow icon="desktop-outline" label="Desktop Agent" onPress={() => { }} />
           </Card>
 
           {/* Danger zone */}
           <Card elevated>
             <Text className="text-muted text-xs font-semibold uppercase tracking-wider mb-3 px-1">Account</Text>
-            <SettingsRow icon="log-out-outline"  label="Sign Out"        onPress={logout}  danger />
+            <SettingsRow icon="log-out-outline" label="Sign Out" onPress={logout} danger />
             <Divider className="my-0" />
-            <SettingsRow icon="trash-outline"    label="Delete Account"  onPress={() => {}} danger />
+            <SettingsRow icon="trash-outline" label="Delete Account" onPress={() => { }} danger />
           </Card>
         </View>
       </ScrollView>

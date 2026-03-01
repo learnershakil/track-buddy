@@ -9,6 +9,8 @@ import { Button }          from "@/components/ui/Button";
 import { useWalletStore }  from "@/store/wallet.store";
 import { useSessionStore } from "@/store/session.store";
 import { COLORS }          from "@/constants/theme";
+import { useCreateCommitment, useConfirmCommitment, useOptIn } from "@/hooks/api";
+import { useAuthStore } from "@/store/auth.store";
 
 const PRESETS = [100, 200, 500, 1000, 2000];
 
@@ -18,12 +20,39 @@ export function StakeScreen() {
   const [amount, setAmount]       = useState(200);
   const [selectedTask, setTask]   = useState(tasks[0]?.id ?? "");
   const [confirmed, setConfirmed] = useState(false);
+  const { user } = useAuthStore();
+  const { mutateAsync: createCommitment, isPending } = useCreateCommitment();
+  const { mutateAsync: confirmCommitment } = useConfirmCommitment();
 
-  const handleStake = () => {
-    if (amount > balance) return;
-    setStaked(amount);
-    addTransaction({ type: "stake", amount, note: tasks.find((t) => t.id === selectedTask)?.title ?? "Manual stake" });
-    setConfirmed(true);
+
+ const handleStake = async () => {
+    if (!user?.walletAddress) {
+      Alert.alert("Wallet required", "Connect your Algorand wallet first.");
+      return;
+    }
+
+    try {
+      // 1. Create commitment → backend returns unsigned Algorand txns
+      const result = await createCommitment({
+        userId:        user.id,
+        title:         tasks.find(t => t.id === selectedTask)?.title ?? "Focus Session",
+        category:      "CODING",
+        duration:      30,
+        stakeAmount:   amount * 1_000_000,  // convert to microALGO
+        walletAddress: user.walletAddress,
+      });
+
+      // 2. Sign the unsigned txns with user wallet (algosdk / Pera Wallet)
+      //    For now show the txn to user — wallet integration TBD
+      const signedTxId = await signWithWallet(result.unsignedTxns);
+
+      // 3. Confirm with backend
+      await confirmCommitment({ id: result.commitment.id, txId: signedTxId });
+
+      setConfirmed(true);
+    } catch (err) {
+      Alert.alert("Stake failed", err instanceof Error ? err.message : "Unknown error");
+    }
   };
 
   if (confirmed) {
